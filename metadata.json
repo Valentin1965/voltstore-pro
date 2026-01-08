@@ -1,0 +1,8 @@
+
+{
+  "name": "VoltStore Pro - Eco-Energy E-commerce",
+  "description": "Професійна платформа для продажу систем енергонезалежності. Включає калькулятор потужності, конфігуратор комплектів та систему імпорту CSV.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
