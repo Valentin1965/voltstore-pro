@@ -40,11 +40,10 @@ const App: React.FC = () => {
     localStorage.setItem('voltstore_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Завантаження товарів
+  // Завантаження товарів (Supabase → CSV → MOCK)
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        // Спроба 1: Supabase
         const { data, error } = await supabase.from('products').select('*');
 
         if (error) throw error;
@@ -54,13 +53,15 @@ const App: React.FC = () => {
           console.log(`Завантажено ${data.length} товарів з Supabase`);
           setIsDataLoaded(true);
           return;
+        } else {
+          console.warn('Supabase повернув порожній масив');
         }
       } catch (supabaseError) {
-        console.warn('Помилка Supabase, пробуємо CSV', supabaseError);
+        console.warn('Помилка Supabase:', supabaseError);
       }
 
+      // Fallback на CSV
       try {
-        // Спроба 2: products.csv
         const response = await fetch('/products.csv');
         if (response.ok) {
           const text = await response.text();
@@ -93,8 +94,8 @@ const App: React.FC = () => {
         console.warn('CSV не знайдено або помилка парсингу', csvError);
       }
 
-      // Спроба 3: MOCK_PRODUCTS
-      console.warn('Усі джерела даних недоступні, використовуємо MOCK_PRODUCTS');
+      // Fallback на MOCK_PRODUCTS
+      console.warn('Використовуємо MOCK_PRODUCTS як останній варіант');
       setProducts(MOCK_PRODUCTS);
       setIsDataLoaded(true);
     };
@@ -110,9 +111,9 @@ const App: React.FC = () => {
       const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
 
       const nameMatch = p.name && p.name.toLowerCase().includes(searchLower);
-      const subCategoryMatch = p.subCategory && p.subCategory.toLowerCase().includes(searchLower);
+      const subCategoryMatch = p.subCategory ? p.subCategory.toLowerCase().includes(searchLower) : false;
 
-      return matchesCategory && (nameMatch || subCategoryMatch);
+      return matchesCategory && (searchQuery === '' || nameMatch || subCategoryMatch);
     });
   }, [products, activeCategory, searchQuery]);
 
@@ -249,38 +250,45 @@ const App: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredProducts.map(product => (
-              <div
-                key={product.id}
-                className="bg-white rounded-[40px] p-5 border border-slate-100 flex flex-col cursor-pointer hover:shadow-2xl transition-all group"
-                onClick={() => setSelectedProduct(product)}
-              >
-                <div className="relative overflow-hidden rounded-[30px] mb-6 aspect-square bg-slate-100">
-                  <img
-                    src={product.image}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                    alt={product.name}
-                  />
-                </div>
-                <h3 className="font-bold text-slate-900 text-base mb-4 h-12 line-clamp-2">
-                  {product.name}
-                </h3>
-                <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
-                  <span className="font-black text-lg text-slate-900">
-                    {product.price.toLocaleString()} ₴
-                  </span>
-                  <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      addToCart(product);
-                    }}
-                    className="p-3 bg-white shadow-sm rounded-xl hover:bg-yellow-400 transition-colors"
-                  >
-                    🛒
-                  </button>
-                </div>
+            {filteredProducts.length === 0 ? (
+              <div className="col-span-full text-center py-20">
+                <p className="text-xl text-slate-500">Товари не знайдено</p>
+                <p className="text-sm text-slate-400 mt-2">Спробуйте змінити фільтр або пошук</p>
               </div>
-            ))}
+            ) : (
+              filteredProducts.map(product => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-[40px] p-5 border border-slate-100 flex flex-col cursor-pointer hover:shadow-2xl transition-all group"
+                  onClick={() => setSelectedProduct(product)}
+                >
+                  <div className="relative overflow-hidden rounded-[30px] mb-6 aspect-square bg-slate-100">
+                    <img
+                      src={product.image}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      alt={product.name}
+                    />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base mb-4 h-12 line-clamp-2">
+                    {product.name}
+                  </h3>
+                  <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
+                    <span className="font-black text-lg text-slate-900">
+                      {product.price.toLocaleString()} ₴
+                    </span>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        addToCart(product);
+                      }}
+                      className="p-3 bg-white shadow-sm rounded-xl hover:bg-yellow-400 transition-colors"
+                    >
+                      🛒
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
