@@ -40,61 +40,69 @@ const App: React.FC = () => {
     localStorage.setItem('voltstore_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Завантаження товарів з Supabase (без сортування)
+  // Завантаження товарів
   useEffect(() => {
     const loadProducts = async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*');
+      try {
+        // Спроба 1: Supabase
+        const { data, error } = await supabase.from('products').select('*');
 
-      if (error) {
-        console.warn('Помилка Supabase, завантажуємо з CSV', error);
-        try {
-          const response = await fetch('/products.csv');
-          if (response.ok) {
-            const text = await response.text();
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            if (lines.length > 1) {
-              const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-              const productsFromCSV: Product[] = lines.slice(1).map(line => {
-                const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
-                return {
-                  id: values[headers.indexOf('id')] || `csv_${Date.now()}`,
-                  name: values[headers.indexOf('name')] || 'Без назви',
-                  category: values[headers.indexOf('category')] as Product['category'] || 'inverter',
-                  subCategory: values[headers.indexOf('subCategory')] || undefined,
-                  price: Number(values[headers.indexOf('price')]) || 0,
-                  description: values[headers.indexOf('description')] || '',
-                  image: values[headers.indexOf('image')] || 'https://via.placeholder.com/400',
-                  specs: values[headers.indexOf('specs')] || undefined,
-                  detailedTechSpecs: values[headers.indexOf('detailedTechSpecs')] || undefined,
-                  datasheet: values[headers.indexOf('datasheet')] || undefined,
-                  stock: 10,
-                };
-              });
-              setProducts(productsFromCSV);
-              console.log(`Завантажено ${productsFromCSV.length} товарів з CSV`);
-            } else {
-              setProducts(MOCK_PRODUCTS);
-            }
-          } else {
-            setProducts(MOCK_PRODUCTS);
-          }
-        } catch (csvError) {
-          console.warn('CSV не знайдено, використовуємо MOCK_PRODUCTS');
-          setProducts(MOCK_PRODUCTS);
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          setProducts(data);
+          console.log(`Завантажено ${data.length} товарів з Supabase`);
+          setIsDataLoaded(true);
+          return;
         }
-      } else {
-        setProducts(data || []);
-        console.log(`Завантажено ${data?.length || 0} товарів з Supabase`);
+      } catch (supabaseError) {
+        console.warn('Помилка Supabase, пробуємо CSV', supabaseError);
       }
+
+      try {
+        // Спроба 2: products.csv
+        const response = await fetch('/products.csv');
+        if (response.ok) {
+          const text = await response.text();
+          const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+          if (lines.length > 1) {
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const productsFromCSV: Product[] = lines.slice(1).map(line => {
+              const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+              return {
+                id: values[headers.indexOf('id')] || `csv_${Date.now()}`,
+                name: values[headers.indexOf('name')] || 'Без назви',
+                category: values[headers.indexOf('category')] as Product['category'] || 'inverter',
+                subCategory: values[headers.indexOf('subCategory')] || undefined,
+                price: Number(values[headers.indexOf('price')]) || 0,
+                description: values[headers.indexOf('description')] || '',
+                image: values[headers.indexOf('image')] || 'https://via.placeholder.com/400',
+                specs: values[headers.indexOf('specs')] || undefined,
+                detailedTechSpecs: values[headers.indexOf('detailedTechSpecs')] || undefined,
+                datasheet: values[headers.indexOf('datasheet')] || undefined,
+                stock: 10,
+              };
+            });
+            setProducts(productsFromCSV);
+            console.log(`Завантажено ${productsFromCSV.length} товарів з CSV`);
+            setIsDataLoaded(true);
+            return;
+          }
+        }
+      } catch (csvError) {
+        console.warn('CSV не знайдено або помилка парсингу', csvError);
+      }
+
+      // Спроба 3: MOCK_PRODUCTS
+      console.warn('Усі джерела даних недоступні, використовуємо MOCK_PRODUCTS');
+      setProducts(MOCK_PRODUCTS);
       setIsDataLoaded(true);
     };
 
     loadProducts();
   }, []);
 
-  // ВИПРАВЛЕНИЙ фільтр пошуку — безпечна обробка null/undefined
+  // Безпечний фільтр пошуку
   const filteredProducts = useMemo(() => {
     const searchLower = searchQuery.toLowerCase();
 
@@ -104,9 +112,7 @@ const App: React.FC = () => {
       const nameMatch = p.name && p.name.toLowerCase().includes(searchLower);
       const subCategoryMatch = p.subCategory && p.subCategory.toLowerCase().includes(searchLower);
 
-      const matchesSearch = nameMatch || subCategoryMatch;
-
-      return matchesCategory && matchesSearch;
+      return matchesCategory && (nameMatch || subCategoryMatch);
     });
   }, [products, activeCategory, searchQuery]);
 
