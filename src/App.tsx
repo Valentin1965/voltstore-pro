@@ -40,7 +40,7 @@ const App: React.FC = () => {
     localStorage.setItem('voltstore_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Завантаження товарів (Supabase → CSV → MOCK)
+  // Завантаження товарів з Supabase (з fallback на CSV та MOCK)
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -53,14 +53,11 @@ const App: React.FC = () => {
           console.log(`Завантажено ${data.length} товарів з Supabase`);
           setIsDataLoaded(true);
           return;
-        } else {
-          console.warn('Supabase повернув порожній масив');
         }
       } catch (supabaseError) {
-        console.warn('Помилка Supabase:', supabaseError);
+        console.warn('Помилка Supabase, пробуємо CSV', supabaseError);
       }
 
-      // Fallback на CSV
       try {
         const response = await fetch('/products.csv');
         if (response.ok) {
@@ -94,7 +91,6 @@ const App: React.FC = () => {
         console.warn('CSV не знайдено або помилка парсингу', csvError);
       }
 
-      // Fallback на MOCK_PRODUCTS
       console.warn('Використовуємо MOCK_PRODUCTS як останній варіант');
       setProducts(MOCK_PRODUCTS);
       setIsDataLoaded(true);
@@ -252,8 +248,8 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredProducts.length === 0 ? (
               <div className="col-span-full text-center py-20">
-                <p className="text-xl text-slate-500">Товари не знайдено</p>
-                <p className="text-sm text-slate-400 mt-2">Спробуйте змінити фільтр або пошук</p>
+                <p className="text-2xl font-black text-slate-500">Товари не знайдено</p>
+                <p className="text-slate-400 mt-4">Спробуйте змінити категорію або пошук</p>
               </div>
             ) : (
               filteredProducts.map(product => (
@@ -274,7 +270,7 @@ const App: React.FC = () => {
                   </h3>
                   <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
                     <span className="font-black text-lg text-slate-900">
-                      {product.price.toLocaleString()} ₴
+                      {product.price ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
                     </span>
                     <button
                       onClick={e => {
@@ -353,7 +349,9 @@ const App: React.FC = () => {
               <div className="mt-auto pt-10 border-t flex justify-between items-center gap-6">
                 <div>
                   <p className="text-[10px] uppercase text-slate-400 font-black mb-1">Вартість</p>
-                  <span className="text-3xl font-black">{selectedProduct.price.toLocaleString()} ₴</span>
+                  <span className="text-3xl font-black">
+                    {selectedProduct.price ? selectedProduct.price.toLocaleString() : 'Ціна за запитом'} ₴
+                  </span>
                 </div>
                 <button
                   onClick={() => {
