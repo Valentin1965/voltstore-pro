@@ -306,7 +306,7 @@ const App: React.FC = () => {
 
             <div className="w-full md:w-1/2 p-12 overflow-y-auto">
               <h2 className="text-3xl font-black mb-6">{selectedProduct.name}</h2>
-              <p className="text-slate-500 mb-8 leading-relaxed">{selectedProduct.description}</p>
+              <p className="text-slate-500 mb-8 leading-relaxed">{selectedProduct.description || 'Опис відсутній'}</p>
 
               {selectedProduct.specs && (
                 <div className="mb-10 bg-slate-50 rounded-3xl p-6">
