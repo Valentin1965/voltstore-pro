@@ -1,15 +1,12 @@
 {
   "name": "voltstore-pro",
   "version": "1.1.0",
-  "description": "Інтернет-магазин систем енергонезалежності: інвертори Deye, гібридні системи, комплекти, кошик, оформлення замовлень, адмін-панель з Supabase",
+  "description": "Інтернет-магазин систем енергонезалежності: інвертори Deye, комплекти, кошик, оформлення, адмінка з Supabase",
   "private": true,
   "homepage": "https://voltstore-pro.vercel.app",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Valentin1965/voltstore-pro.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Valentin1965/voltstore-pro/issues"
   },
   "keywords": [
     "react",
@@ -21,17 +18,15 @@
     "inverter",
     "deye",
     "energystorage",
-    "ecommerce",
-    "ukraine"
+    "ecommerce"
   ],
   "author": "Valentin1965",
   "license": "MIT",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npx vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
-    "format": "prettier --write ."
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -44,7 +39,6 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
-    "prettier": "^3.3.3",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.6.2",
     "vite": "^5.4.8"
