@@ -40,7 +40,7 @@ const App: React.FC = () => {
     localStorage.setItem('voltstore_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Завантаження товарів з Supabase (з fallback на CSV та MOCK)
+  // Завантаження товарів з Supabase з fallback
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -58,6 +58,7 @@ const App: React.FC = () => {
         console.warn('Помилка Supabase, пробуємо CSV', supabaseError);
       }
 
+      // Fallback на CSV
       try {
         const response = await fetch('/products.csv');
         if (response.ok) {
@@ -88,11 +89,12 @@ const App: React.FC = () => {
           }
         }
       } catch (csvError) {
-        console.warn('CSV не знайдено або помилка парсингу', csvError);
+        console.warn('CSV не знайдено', csvError);
       }
 
-      console.warn('Використовуємо MOCK_PRODUCTS як останній варіант');
+      // Fallback на MOCK
       setProducts(MOCK_PRODUCTS);
+      console.log('Використовуємо MOCK_PRODUCTS');
       setIsDataLoaded(true);
     };
 
@@ -148,7 +150,7 @@ const App: React.FC = () => {
   const clearCart = () => setCart([]);
 
   const cartTotalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const cartTotalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const cartTotalAmount = cart.reduce((sum, item) => sum + (item.product.price || 0) * item.quantity, 0);
 
   if (!isDataLoaded) return null;
 
@@ -270,7 +272,7 @@ const App: React.FC = () => {
                   </h3>
                   <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
                     <span className="font-black text-lg text-slate-900">
-                      {product.price ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
+                      {product.price != null ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
                     </span>
                     <button
                       onClick={e => {
@@ -350,7 +352,7 @@ const App: React.FC = () => {
                 <div>
                   <p className="text-[10px] uppercase text-slate-400 font-black mb-1">Вартість</p>
                   <span className="text-3xl font-black">
-                    {selectedProduct.price ? selectedProduct.price.toLocaleString() : 'Ціна за запитом'} ₴
+                    {selectedProduct.price != null ? selectedProduct.price.toLocaleString() : 'Ціна за запитом'} ₴
                   </span>
                 </div>
                 <button
