@@ -58,7 +58,6 @@ const App: React.FC = () => {
         console.warn('Помилка Supabase, пробуємо CSV', supabaseError);
       }
 
-      // Fallback на CSV
       try {
         const response = await fetch('/products.csv');
         if (response.ok) {
@@ -89,12 +88,11 @@ const App: React.FC = () => {
           }
         }
       } catch (csvError) {
-        console.warn('CSV не знайдено', csvError);
+        console.warn('CSV не знайдено або помилка парсингу', csvError);
       }
 
-      // Fallback на MOCK
+      console.warn('Використовуємо MOCK_PRODUCTS як останній варіант');
       setProducts(MOCK_PRODUCTS);
-      console.log('Використовуємо MOCK_PRODUCTS');
       setIsDataLoaded(true);
     };
 
@@ -272,7 +270,7 @@ const App: React.FC = () => {
                   </h3>
                   <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
                     <span className="font-black text-lg text-slate-900">
-                      {product.price != null ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
+                      {product.price != null && product.price > 0 ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
                     </span>
                     <button
                       onClick={e => {
@@ -352,7 +350,7 @@ const App: React.FC = () => {
                 <div>
                   <p className="text-[10px] uppercase text-slate-400 font-black mb-1">Вартість</p>
                   <span className="text-3xl font-black">
-                    {selectedProduct.price != null ? selectedProduct.price.toLocaleString() : 'Ціна за запитом'} ₴
+                    {selectedProduct.price != null && selectedProduct.price > 0 ? selectedProduct.price.toLocaleString() : 'Ціна за запитом'} ₴
                   </span>
                 </div>
                 <button
