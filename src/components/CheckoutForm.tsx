@@ -1,7 +1,7 @@
 // src/components/CheckoutForm.tsx
 import React, { useState } from 'react';
 import { CartItem } from '../types.ts';
-import { supabase } from '../services/supabase.ts'; // Підключення Supabase
+import { supabase } from '../services/supabase.ts';
 
 interface CheckoutFormProps {
   cart: CartItem[];
@@ -27,16 +27,16 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.fullName.trim()) newErrors.fullName = "Вкажіть ПІБ";
-    if (!formData.phone.trim()) newErrors.phone = "Вкажіть телефон";
-    if (!formData.email.trim()) newErrors.email = "Вкажіть email";
-    if (!formData.city.trim()) newErrors.city = "Вкажіть місто";
-    if (formData.deliveryType === 'nova-poshta' && !formData.department.trim()) {
-      newErrors.department = "Вкажіть відділення";
-    }
-    if (formData.deliveryType === 'address' && !formData.address.trim()) {
-      newErrors.address = "Вкажіть адресу";
-    }
+
+    if (!formData.fullName.trim()) newErrors.fullName = 'Вкажіть ПІБ';
+    if (!formData.phone.trim()) newErrors.phone = 'Вкажіть телефон';
+    else if (!/^\+380\d{9}$/.test(formData.phone)) newErrors.phone = 'Неправильний формат телефону (+380...)';
+    if (!formData.email.trim()) newErrors.email = 'Вкажіть email';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Неправильний формат email';
+    if (!formData.city.trim()) newErrors.city = 'Вкажіть місто';
+    if (formData.deliveryType === 'nova-poshta' && !formData.department.trim()) newErrors.department = 'Вкажіть відділення';
+    if (formData.deliveryType === 'address' && !formData.address.trim()) newErrors.address = 'Вкажіть адресу';
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -63,7 +63,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
       items: cart.map(item => ({
         product_id: item.product.id,
         name: item.product.name,
-        price: item.product.price,
+        price: item.product.price || 0,
         quantity: item.quantity,
         image: item.product.image,
       })),
@@ -71,8 +71,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
     });
 
     if (error) {
-      console.error('Помилка збереження замовлення в Supabase:', error);
-      alert('Помилка відправки замовлення. Перевірте консоль або спробуйте пізніше.');
+      alert('Помилка відправки замовлення. Перевірте інтернет або спробуйте пізніше.');
+      console.error('Supabase error:', error);
     } else {
       onOrderSuccess(orderNumber);
     }
@@ -85,7 +85,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
       <h1 className="text-4xl font-black text-slate-900 mb-10 text-center">Оформлення замовлення</h1>
 
       <div className="grid lg:grid-cols-3 gap-10">
-        {/* Ліва частина — форма */}
         <div className="lg:col-span-2">
           <h2 className="text-2xl font-black mb-6">Ваші дані та доставка</h2>
           <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-3xl p-8 shadow-lg border border-slate-100">
@@ -96,7 +95,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
                   type="text"
                   value={formData.fullName}
                   onChange={e => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
-                  className={`w-full px-4 py-3 rounded-xl border ${errors.fullName ? 'border-red-500' : 'border-slate-200'} focus:border-yellow-500 outline-none`}
+                  className={`w-full px-4 py-3 rounded-xl border ${errors.fullName ? 'border-red-500' : 'border-slate-200'}`}
                   placeholder="Іванов Іван Іванович"
                 />
                 {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
@@ -109,7 +108,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
                   value={formData.phone}
                   onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   className={`w-full px-4 py-3 rounded-xl border ${errors.phone ? 'border-red-500' : 'border-slate-200'}`}
-                  placeholder="+380"
+                  placeholder="+380671234567"
                 />
                 {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
               </div>
@@ -122,7 +121,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
                 value={formData.email}
                 onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 className={`w-full px-4 py-3 rounded-xl border ${errors.email ? 'border-red-500' : 'border-slate-200'}`}
-                placeholder="ivan@example.com"
+                placeholder="example@gmail.com"
               />
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             </div>
@@ -207,7 +206,6 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
           </form>
         </div>
 
-        {/* Права частина — підсумок замовлення */}
         <div className="lg:col-span-1">
           <h2 className="text-2xl font-black mb-6">Ваше замовлення</h2>
           <div className="bg-slate-50 rounded-3xl p-6 space-y-6 border border-slate-200">
@@ -221,10 +219,10 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({ cart, totalAmount, o
                 <div className="flex-grow">
                   <h4 className="font-bold text-slate-900">{item.product.name}</h4>
                   <p className="text-sm text-slate-500 mt-1">
-                    {item.product.price.toLocaleString()} ₴ × {item.quantity} шт.
+                    {(item.product.price || 0).toLocaleString()} ₴ × {item.quantity} шт.
                   </p>
-                  <p className="font-black text-lg text-slate-900 mt-2">
-                    {(item.product.price * item.quantity).toLocaleString()} ₴
+                  <p className="font-bold text-lg text-slate-900 mt-2">
+                    {((item.product.price || 0) * item.quantity).toLocaleString()} ₴
                   </p>
                 </div>
               </div>
