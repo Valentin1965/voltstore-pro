@@ -5,31 +5,24 @@ export enum UserRole {
   CLIENT = 'CLIENT'
 }
 
-export enum BatteryType {
-  LIFEP04 = 'LiFePO4',
-  GEL = 'Gel',
-  AGM = 'AGM',
-  LI_ION = 'Li-ion'
-}
-
 export interface BundleItem {
   name: string;
   quantity: number;
 }
 
-// src/types.ts
 export interface Product {
   id: string;
   name: string;
-  category: 'inverter' | 'battery' | 'kit' | 'solar_panel';
+  category: 'inverter' | 'battery' | 'solar_panel' | 'kit';
   subCategory?: string;
-  price: number;
+  price: number | null;          // Дозволяємо null для "Ціна за запитом"
   description: string;
-  image: string;               // Одне зображення
-  specs?: string;              // Рядок з характеристиками через кому
-  detailedTechSpecs?: string;  // Повний текст
-  datasheet?: string;          // PDF посилання
+  image: string;
+  specs?: string;
+  detailedTechSpecs?: string;
+  datasheet?: string;
   stock?: number;
+  bundleItems?: BundleItem[];    // Для комплектів
 }
 
 export interface User {

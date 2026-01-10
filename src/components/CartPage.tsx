@@ -8,7 +8,7 @@ interface CartPageProps {
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
   onBackToCatalog: () => void;
-  onCheckout: () => void; // Новий пропс для переходу до оформлення
+  onCheckout: () => void; 
 }
 
 export const CartPage: React.FC<CartPageProps> = ({
@@ -19,7 +19,7 @@ export const CartPage: React.FC<CartPageProps> = ({
   onBackToCatalog,
   onCheckout,
 }) => {
-  const totalAmount = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const totalAmount = cart.reduce((sum, item) => sum + ((item.product.price || 0) * item.quantity), 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   if (cart.length === 0) {
@@ -56,7 +56,7 @@ export const CartPage: React.FC<CartPageProps> = ({
             <div className="flex-grow text-center sm:text-left">
               <h3 className="font-black text-lg text-slate-900">{item.product.name}</h3>
               <p className="text-slate-500 text-sm mt-1">
-                {item.product.price.toLocaleString()} ₴ за одиницю
+                {(item.product.price || 0).toLocaleString()} ₴ за одиницю
               </p>
             </div>
 
@@ -78,7 +78,7 @@ export const CartPage: React.FC<CartPageProps> = ({
 
             <div className="text-center sm:text-right">
               <p className="font-black text-xl text-slate-900">
-                {(item.product.price * item.quantity).toLocaleString()} ₴
+                {((item.product.price || 0) * item.quantity).toLocaleString()} ₴
               </p>
             </div>
 
@@ -115,7 +115,6 @@ export const CartPage: React.FC<CartPageProps> = ({
             Продовжити покупки
           </button>
 
-          {/* Кнопка оформлення замовлення */}
           <button
             onClick={onCheckout}
             className="bg-yellow-500 text-slate-900 px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-yellow-400 transition shadow-lg"
