@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [currentOrderId, setCurrentOrderId] = useState<string>('');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Завантаження кошика
+  // Кошик
   useEffect(() => {
     const saved = localStorage.getItem('voltstore_cart');
     if (saved) setCart(JSON.parse(saved) || []);
@@ -37,8 +37,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data, error } = await supabase.from('products').select('*');
-        if (error) throw error;
+        const { data } = await supabase.from('products').select('*');
         if (data?.length) {
           setProducts(data);
           console.log(`Supabase: ${data.length} товарів`);
