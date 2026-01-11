@@ -1,126 +1,19 @@
-import React, { useState, useMemo, useEffect } from 'react';
+// src/App.tsx
+import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { Calculator } from './components/Calculator.tsx';
 import { AdminPanel } from './components/AdminPanel.tsx';
 import { CartPage } from './components/CartPage.tsx';
 import { CheckoutForm } from './components/CheckoutForm.tsx';
 import { OrderSuccess } from './components/OrderSuccess.tsx';
-import { ProductModal } from './components/ProductModal.tsx'; // окремий модал
+import { ProductModal } from './components/ProductModal.tsx';
+import { CatalogSection } from './components/CatalogSection.tsx';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants.tsx';
 import { UserRole, Product, CartItem } from './types.ts';
 import { useAuth } from './services/auth.tsx';
 import { supabase } from './services/supabase.ts';
-
-// Хук для кошика
-const useCart = () => {
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('voltstore_cart');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('voltstore_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      return existing
-        ? prev.map(item =>
-            item.product.id === product.id
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          )
-        : [...prev, { product, quantity: 1 }];
-  };
-
-  const updateQuantity = (productId: string, quantity: number) => {
-    setCart(prev =>
-      quantity <= 0
-        ? prev.filter(item => item.product.id !== productId)
-        : prev.map(item =>
-            item.product.id === productId ? { ...item, quantity } : item
-          )
-    );
-  };
-
-  const removeFromCart = (productId: string) => setCart(prev => prev.filter(item => item.product.id !== productId));
-  const clearCart = () => setCart([]);
-
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmount = cart.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0);
-
-  return { cart, addToCart, updateQuantity, removeFromCart, clearCart, totalItems, totalAmount };
-};
-
-// Хук для фільтрів товарів
-const useProductFilters = (products: Product[]) => {
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filtered = useMemo(() => {
-    const lower = searchQuery.toLowerCase();
-    return products.filter(p => {
-      const catMatch = activeCategory === 'all' || p.category === activeCategory;
-      const nameMatch = p.name.toLowerCase().includes(lower);
-      const subMatch = p.subCategory?.toLowerCase().includes(lower) ?? false;
-      return catMatch && (searchQuery === '' || nameMatch || subMatch);
-    });
-  }, [products, activeCategory, searchQuery]);
-
-  return { activeCategory, setActiveCategory, searchQuery, setSearchQuery, filtered };
-};
-
-// Компонент каталогу
-const CatalogSection = React.memo(
-  ({ filteredProducts, onSelect, onAddToCart }: {
-    filteredProducts: Product[];
-    onSelect: (p: Product) => void;
-    onAddToCart: (p: Product) => void;
-  }) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-      {filteredProducts.length === 0 ? (
-        <div className="col-span-full text-center py-20">
-          <p className="text-2xl font-black text-slate-500">Товари не знайдено</p>
-          <p className="text-slate-400 mt-4">Змініть фільтр або пошук</p>
-        </div>
-      ) : (
-        filteredProducts.map(p => (
-          <div
-            key={p.id}
-            className="bg-white rounded-[40px] p-5 border border-slate-100 flex flex-col cursor-pointer hover:shadow-2xl transition-all group"
-            onClick={() => onSelect(p)}
-          >
-            <div className="relative overflow-hidden rounded-[30px] mb-6 aspect-square bg-slate-100">
-              <img
-                src={p.image || 'https://via.placeholder.com/400'}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                alt={p.name}
-              />
-            </div>
-            <h3 className="font-bold text-slate-900 text-base mb-4 h-12 line-clamp-2">
-              {p.name}
-            </h3>
-            <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
-              <span className="font-black text-lg text-slate-900">
-                {p.price != null && p.price > 0 ? p.price.toLocaleString() : 'Ціна за запитом'} ₴
-              </span>
-              <button
-                onClick={e => {
-                  e.stopPropagation();
-                  onAddToCart(p);
-                }}
-                className="p-3 bg-white shadow-sm rounded-xl hover:bg-yellow-400 transition-colors"
-              >
-                🛒
-              </button>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-);
+import { useCart } from './hooks/useCart.ts';
+import { useProductFilters } from './hooks/useProductFilters.ts';
 
 const App: React.FC = () => {
   const { user, login, logout, isAdmin } = useAuth();
@@ -129,10 +22,9 @@ const App: React.FC = () => {
   const [view, setView] = useState<'catalog' | 'admin' | 'cart' | 'checkout' | 'orderSuccess'>('catalog');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string>('');
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   const { cart, addToCart, updateQuantity, removeFromCart, clearCart, totalItems, totalAmount } = useCart();
-  const { activeCategory, setActiveCategory, searchQuery, setSearchQuery, filtered } = useProductFilters(products);
+  const { activeCategory, setActiveCategory, searchQuery, setSearchQuery, filtered: filteredProducts } = useProductFilters(products);
 
   // Завантаження товарів
   useEffect(() => {
@@ -143,7 +35,6 @@ const App: React.FC = () => {
         if (data?.length) {
           setProducts(data);
           console.log(`Supabase: ${data.length} товарів`);
-          setIsDataLoaded(true);
           return;
         }
       } catch (e) {
@@ -175,7 +66,6 @@ const App: React.FC = () => {
             });
             setProducts(items);
             console.log(`CSV: ${items.length} товарів`);
-            setIsDataLoaded(true);
             return;
           }
         }
@@ -184,14 +74,13 @@ const App: React.FC = () => {
       }
 
       setProducts(MOCK_PRODUCTS);
-      console.log('MOCK_PRODUCTS');
-      setIsDataLoaded(true);
+      console.log('MOCK');
     };
 
     load();
   }, []);
 
-  if (!isDataLoaded) return null;
+  if (!products.length) return <div className="min-h-screen flex items-center justify-center text-slate-500">Завантаження...</div>;
 
   return (
     <Layout cartCount={totalItems} onCartClick={() => setView('cart')}>
@@ -224,19 +113,13 @@ const App: React.FC = () => {
       )}
 
       {view === 'orderSuccess' ? (
-        <OrderSuccess
-          orderId={currentOrderId}
-          onNewOrder={() => { clearCart(); setView('catalog'); }}
-        />
+        <OrderSuccess orderId={currentOrderId} onNewOrder={() => { clearCart(); setView('catalog'); }} />
       ) : view === 'checkout' ? (
         <CheckoutForm
           cart={cart}
           totalAmount={totalAmount}
           onBackToCart={() => setView('cart')}
-          onOrderSuccess={id => {
-            setCurrentOrderId(id);
-            setView('orderSuccess');
-          }}
+          onOrderSuccess={id => { setCurrentOrderId(id); setView('orderSuccess'); }}
         />
       ) : view === 'admin' && isAdmin ? (
         <div className="max-w-7xl mx-auto px-4 py-10">
@@ -273,9 +156,7 @@ const App: React.FC = () => {
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
-                  activeCategory === cat.id
-                    ? 'bg-slate-900 text-white shadow-xl scale-105'
-                    : 'bg-white text-slate-400 border border-slate-100'
+                  activeCategory === cat.id ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-white text-slate-400 border border-slate-100'
                 }`}
               >
                 {cat.icon} {cat.name}
@@ -283,20 +164,12 @@ const App: React.FC = () => {
             ))}
           </div>
 
-          <CatalogSection
-            filteredProducts={filteredProducts}
-            onSelect={setSelectedProduct}
-            onAddToCart={addToCart}
-          />
+          <CatalogSection filteredProducts={filteredProducts} onSelect={setSelectedProduct} onAddToCart={addToCart} />
         </div>
       )}
 
       {selectedProduct && (
-        <ProductModal
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={addToCart}
-        />
+        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAddToCart={addToCart} />
       )}
     </Layout>
   );
