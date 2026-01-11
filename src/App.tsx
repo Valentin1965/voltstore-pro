@@ -1,159 +1,88 @@
 // src/App.tsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { Calculator } from './components/Calculator.tsx';
-import { KitBundleVisualizer } from './components/KitBundleVisualizer.tsx';
 import { AdminPanel } from './components/AdminPanel.tsx';
 import { CartPage } from './components/CartPage.tsx';
 import { CheckoutForm } from './components/CheckoutForm.tsx';
 import { OrderSuccess } from './components/OrderSuccess.tsx';
+import { ProductModal } from './components/ProductModal.tsx';
+import { CatalogSection } from './components/CatalogSection.tsx';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants.tsx';
 import { UserRole, Product, CartItem } from './types.ts';
 import { useAuth } from './services/auth.tsx';
 import { supabase } from './services/supabase.ts';
+import { useCart } from './hooks/useCart.ts';
+import { useProductFilters } from './hooks/useProductFilters.ts';
 
 const App: React.FC = () => {
   const { user, login, logout, isAdmin } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [activeCategory, setActiveCategory] = useState('all');
   const [view, setView] = useState<'catalog' | 'admin' | 'cart' | 'checkout' | 'orderSuccess'>('catalog');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string>('');
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Завантаження кошика з localStorage
-  useEffect(() => {
-    const savedCart = localStorage.getItem('voltstore_cart');
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch (e) {
-        console.warn('Помилка завантаження кошика');
-      }
-    }
-  }, []);
+  const { cart, addToCart, updateQuantity, removeFromCart, clearCart, totalItems, totalAmount } = useCart();
+  const { activeCategory, setActiveCategory, searchQuery, setSearchQuery, filteredProducts } = useProductFilters(products);
 
   useEffect(() => {
-    localStorage.setItem('voltstore_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  // Завантаження товарів з Supabase з fallback
-  useEffect(() => {
-    const loadProducts = async () => {
+    const load = async () => {
       try {
         const { data, error } = await supabase.from('products').select('*');
-
         if (error) throw error;
-
-        if (data && data.length > 0) {
+        if (data?.length) {
           setProducts(data);
-          console.log(`Завантажено ${data.length} товарів з Supabase`);
-          setIsDataLoaded(true);
+          console.log(`Supabase: ${data.length} товарів`);
           return;
         }
-      } catch (supabaseError) {
-        console.warn('Помилка Supabase, пробуємо CSV', supabaseError);
+      } catch (e) {
+        console.warn('Supabase error:', e);
       }
 
       try {
-        const response = await fetch('/products.csv');
-        if (response.ok) {
-          const text = await response.text();
-          const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+        const res = await fetch('/products.csv');
+        if (res.ok) {
+          const text = await res.text();
+          const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
           if (lines.length > 1) {
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-            const productsFromCSV: Product[] = lines.slice(1).map(line => {
-              const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+            const h = lines[0].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+            const items = lines.slice(1).map(l => {
+              const v = l.split(',').map(s => s.trim().replace(/^"|"$/g, ''));
               return {
-                id: values[headers.indexOf('id')] || `csv_${Date.now()}`,
-                name: values[headers.indexOf('name')] || 'Без назви',
-                category: values[headers.indexOf('category')] as Product['category'] || 'inverter',
-                subCategory: values[headers.indexOf('subCategory')] || undefined,
-                price: Number(values[headers.indexOf('price')]) || 0,
-                description: values[headers.indexOf('description')] || '',
-                image: values[headers.indexOf('image')] || 'https://via.placeholder.com/400',
-                specs: values[headers.indexOf('specs')] || undefined,
-                detailedTechSpecs: values[headers.indexOf('detailedTechSpecs')] || undefined,
-                datasheet: values[headers.indexOf('datasheet')] || undefined,
+                id: v[h.indexOf('id')] || `csv_${Date.now()}`,
+                name: v[h.indexOf('name')] || 'Без назви',
+                category: v[h.indexOf('category')] as Product['category'] || 'inverter',
+                subCategory: v[h.indexOf('subCategory')] || undefined,
+                price: Number(v[h.indexOf('price')]) || null,
+                description: v[h.indexOf('description')] || '',
+                image: v[h.indexOf('image')] || 'https://via.placeholder.com/400',
+                specs: v[h.indexOf('specs')] || undefined,
+                detailedTechSpecs: v[h.indexOf('detailedTechSpecs')] || undefined,
+                datasheet: v[h.indexOf('datasheet')] || undefined,
                 stock: 10,
-              };
+              } as Product;
             });
-            setProducts(productsFromCSV);
-            console.log(`Завантажено ${productsFromCSV.length} товарів з CSV`);
-            setIsDataLoaded(true);
+            setProducts(items);
+            console.log(`CSV: ${items.length} товарів`);
             return;
           }
         }
-      } catch (csvError) {
-        console.warn('CSV не знайдено або помилка парсингу', csvError);
+      } catch (e) {
+        console.warn('CSV error:', e);
       }
 
-      console.warn('Використовуємо MOCK_PRODUCTS як останній варіант');
       setProducts(MOCK_PRODUCTS);
-      setIsDataLoaded(true);
+      console.log('MOCK');
     };
 
-    loadProducts();
+    load();
   }, []);
 
-  // Безпечний фільтр пошуку
-  const filteredProducts = useMemo(() => {
-    const searchLower = searchQuery.toLowerCase();
-
-    return products.filter(p => {
-      const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
-
-      const nameMatch = p.name && p.name.toLowerCase().includes(searchLower);
-      const subCategoryMatch = p.subCategory ? p.subCategory.toLowerCase().includes(searchLower) : false;
-
-      return matchesCategory && (searchQuery === '' || nameMatch || subCategoryMatch);
-    });
-  }, [products, activeCategory, searchQuery]);
-
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { product, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (productId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-    setCart(prev =>
-      prev.map(item =>
-        item.product.id === productId
-          ? { ...item, quantity: newQuantity }
-          : item
-      )
-    );
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
-  };
-
-  const clearCart = () => setCart([]);
-
-  const cartTotalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const cartTotalAmount = cart.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0);
-
-  if (!isDataLoaded) return null;
+  if (!products.length) return <div className="min-h-screen flex items-center justify-center text-slate-500">Завантаження...</div>;
 
   return (
-    <Layout cartCount={cartTotalItems} onCartClick={() => setView('cart')}>
+    <Layout cartCount={totalItems} onCartClick={() => setView('cart')}>
       <div
         className="bg-slate-900 text-white py-2 text-[10px] font-black uppercase text-center cursor-pointer"
         onClick={() => (user ? logout() : login('admin@voltstore.pro', UserRole.ADMIN))}
@@ -183,22 +112,13 @@ const App: React.FC = () => {
       )}
 
       {view === 'orderSuccess' ? (
-        <OrderSuccess
-          orderId={currentOrderId}
-          onNewOrder={() => {
-            clearCart();
-            setView('catalog');
-          }}
-        />
+        <OrderSuccess orderId={currentOrderId} onNewOrder={() => { clearCart(); setView('catalog'); }} />
       ) : view === 'checkout' ? (
         <CheckoutForm
           cart={cart}
-          totalAmount={cartTotalAmount}
+          totalAmount={totalAmount}
           onBackToCart={() => setView('cart')}
-          onOrderSuccess={(orderId) => {
-            setCurrentOrderId(orderId);
-            setView('orderSuccess');
-          }}
+          onOrderSuccess={id => { setCurrentOrderId(id); setView('orderSuccess'); }}
         />
       ) : view === 'admin' && isAdmin ? (
         <div className="max-w-7xl mx-auto px-4 py-10">
@@ -235,9 +155,7 @@ const App: React.FC = () => {
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 className={`px-6 py-3 rounded-2xl text-xs font-black transition-all flex items-center gap-2 ${
-                  activeCategory === cat.id
-                    ? 'bg-slate-900 text-white shadow-xl scale-105'
-                    : 'bg-white text-slate-400 border border-slate-100'
+                  activeCategory === cat.id ? 'bg-slate-900 text-white shadow-xl scale-105' : 'bg-white text-slate-400 border border-slate-100'
                 }`}
               >
                 {cat.icon} {cat.name}
