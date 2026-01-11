@@ -1,31 +1,37 @@
+// src/services/auth.tsx
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-import React, { createContext, useContext, useState } from 'react';
-import { UserRole } from '../types.ts';
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  // інші ролі
+}
 
-const AuthContext = createContext<any>(undefined);
+interface User {
+  name: string;
+  role: UserRole;
+}
 
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('volt_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+interface AuthContextType {
+  user: User | null;
+  login: (name: string, role: UserRole) => void;
+  logout: () => void;
+  isAdmin: boolean;
+}
 
-  const login = (email: string, role: UserRole) => {
-    const newUser = { id: 'u1', email, role, name: email.split('@')[0] };
-    setUser(newUser);
-    localStorage.setItem('volt_user', JSON.stringify(newUser));
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+
+  const login = (name: string, role: UserRole) => {
+    setUser({ name, role });
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('volt_user');
   };
 
-  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER;
+  const isAdmin = user?.role === UserRole.ADMIN;
 
   return (
     <AuthContext.Provider value={{ user, login, logout, isAdmin }}>
@@ -36,6 +42,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (context === undefined) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return context;
 };
