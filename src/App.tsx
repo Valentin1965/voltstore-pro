@@ -241,7 +241,7 @@ const App: React.FC = () => {
                   </h3>
                   <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
                     <span className="font-black text-lg text-slate-900">
-                      {product.price != null && product.price > 0 ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
+                      {product.price ?? 'Ціна за запитом'} ₴
                     </span>
                     <button
                       onClick={e => {
