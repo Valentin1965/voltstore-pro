@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const { cart, addToCart, updateQuantity, removeFromCart, clearCart, totalItems, totalAmount } = useCart();
   const { activeCategory, setActiveCategory, searchQuery, setSearchQuery, filteredProducts } = useProductFilters(products);
 
+  // Завантаження товарів
   useEffect(() => {
     const load = async () => {
       try {
