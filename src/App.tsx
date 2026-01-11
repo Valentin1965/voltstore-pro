@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [currentOrderId, setCurrentOrderId] = useState<string>('');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Кошик з localStorage
+  // Кошик
   useEffect(() => {
     const saved = localStorage.getItem('voltstore_cart');
     if (saved) setCart(JSON.parse(saved) || []);
