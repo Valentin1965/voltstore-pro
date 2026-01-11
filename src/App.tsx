@@ -1,40 +1,47 @@
 // src/App.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { Calculator } from './components/Calculator.tsx';
 import { AdminPanel } from './components/AdminPanel.tsx';
 import { CartPage } from './components/CartPage.tsx';
 import { CheckoutForm } from './components/CheckoutForm.tsx';
 import { OrderSuccess } from './components/OrderSuccess.tsx';
-import { ProductModal } from './components/ProductModal.tsx';
-import { CatalogSection } from './components/CatalogSection.tsx';
 import { MOCK_PRODUCTS, CATEGORIES } from './constants.tsx';
 import { UserRole, Product, CartItem } from './types.ts';
 import { useAuth } from './services/auth.tsx';
 import { supabase } from './services/supabase.ts';
-import { useCart } from './hooks/useCart.ts';
-import { useProductFilters } from './hooks/useProductFilters.ts';
 
 const App: React.FC = () => {
   const { user, login, logout, isAdmin } = useAuth();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [activeCategory, setActiveCategory] = useState('all');
   const [view, setView] = useState<'catalog' | 'admin' | 'cart' | 'checkout' | 'orderSuccess'>('catalog');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string>('');
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  const { cart, addToCart, updateQuantity, removeFromCart, clearCart, totalItems, totalAmount } = useCart();
-  const { activeCategory, setActiveCategory, searchQuery, setSearchQuery, filteredProducts } = useProductFilters(products);
+  // Кошик з localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('voltstore_cart');
+    if (saved) setCart(JSON.parse(saved) || []);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('voltstore_cart', JSON.stringify(cart));
+  }, [cart]);
 
   // Завантаження товарів
   useEffect(() => {
     const load = async () => {
       try {
-        const { data, error } = await supabase.from('products').select('*');
-        if (error) throw error;
+        const { data } = await supabase.from('products').select('*');
         if (data?.length) {
           setProducts(data);
           console.log(`Supabase: ${data.length} товарів`);
+          setIsDataLoaded(true);
           return;
         }
       } catch (e) {
@@ -62,10 +69,11 @@ const App: React.FC = () => {
                 detailedTechSpecs: v[h.indexOf('detailedTechSpecs')] || undefined,
                 datasheet: v[h.indexOf('datasheet')] || undefined,
                 stock: 10,
-              } as Product;
+              };
             });
             setProducts(items);
             console.log(`CSV: ${items.length} товарів`);
+            setIsDataLoaded(true);
             return;
           }
         }
@@ -75,15 +83,59 @@ const App: React.FC = () => {
 
       setProducts(MOCK_PRODUCTS);
       console.log('MOCK');
+      setIsDataLoaded(true);
     };
 
     load();
   }, []);
 
-  if (!products.length) return <div className="min-h-screen flex items-center justify-center text-slate-500">Завантаження...</div>;
+  // Безпечний фільтр
+  const filteredProducts = useMemo(() => {
+    const lower = searchQuery.toLowerCase();
+
+    return products.filter(p => {
+      const catMatch = activeCategory === 'all' || p.category === activeCategory;
+      const nameMatch = p.name?.toLowerCase().includes(lower) ?? false;
+      const subMatch = p.subCategory?.toLowerCase().includes(lower) ?? false;
+      return catMatch && (searchQuery === '' || nameMatch || subMatch);
+    });
+  }, [products, activeCategory, searchQuery]);
+
+  const addToCart = (product: Product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      return existing
+        ? prev.map(item =>
+            item.product.id === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          )
+        : [...prev, { product, quantity: 1 }];
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    setCart(prev =>
+      quantity <= 0
+        ? prev.filter(item => item.product.id !== productId)
+        : prev.map(item =>
+            item.product.id === productId ? { ...item, quantity } : item
+          )
+    );
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prev => prev.filter(item => item.product.id !== productId));
+  };
+
+  const clearCart = () => setCart([]);
+
+  const cartTotalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotalAmount = cart.reduce((sum, item) => sum + (item.product.price ?? 0) * item.quantity, 0);
+
+  if (!isDataLoaded) return <div className="min-h-screen flex items-center justify-center text-slate-500">Завантаження...</div>;
 
   return (
-    <Layout cartCount={totalItems} onCartClick={() => setView('cart')}>
+    <Layout cartCount={cartTotalItems} onCartClick={() => setView('cart')}>
       <div
         className="bg-slate-900 text-white py-2 text-[10px] font-black uppercase text-center cursor-pointer"
         onClick={() => (user ? logout() : login('admin@voltstore.pro', UserRole.ADMIN))}
@@ -164,7 +216,47 @@ const App: React.FC = () => {
             ))}
           </div>
 
-          <CatalogSection filteredProducts={filteredProducts} onSelect={setSelectedProduct} onAddToCart={addToCart} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {filteredProducts.length === 0 ? (
+              <div className="col-span-full text-center py-20">
+                <p className="text-2xl font-black text-slate-500">Товари не знайдено</p>
+                <p className="text-slate-400 mt-4">Спробуйте змінити категорію або пошук</p>
+              </div>
+            ) : (
+              filteredProducts.map(product => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-[40px] p-5 border border-slate-100 flex flex-col cursor-pointer hover:shadow-2xl transition-all group"
+                  onClick={() => setSelectedProduct(product)}
+                >
+                  <div className="relative overflow-hidden rounded-[30px] mb-6 aspect-square bg-slate-100">
+                    <img
+                      src={product.image || 'https://via.placeholder.com/400'}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      alt={product.name}
+                    />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-base mb-4 h-12 line-clamp-2">
+                    {product.name}
+                  </h3>
+                  <div className="mt-auto flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
+                    <span className="font-black text-lg text-slate-900">
+                      {product.price != null && product.price > 0 ? product.price.toLocaleString() : 'Ціна за запитом'} ₴
+                    </span>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        addToCart(product);
+                      }}
+                      className="p-3 bg-white shadow-sm rounded-xl hover:bg-yellow-400 transition-colors"
+                    >
+                      🛒
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
