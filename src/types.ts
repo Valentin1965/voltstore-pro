@@ -2,8 +2,10 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
   MANAGER = 'MANAGER',
-  CLIENT = 'CLIENT'
+  CLIENT = 'CLIENT',
 }
+
+export type BatteryType = 'lifepo4' | 'gel' | 'agm';
 
 export interface BundleItem {
   name: string;
@@ -15,14 +17,19 @@ export interface Product {
   name: string;
   category: 'inverter' | 'battery' | 'solar_panel' | 'kit';
   subCategory?: string;
-  price: number | null;          // Дозволяємо null для "Ціна за запитом"
+  price: number | null; // Дозволяємо null для "Ціна за запитом"
   description: string;
   image: string;
   specs?: string;
   detailedTechSpecs?: string;
   datasheet?: string;
   stock?: number;
-  bundleItems?: BundleItem[];    // Для комплектів
+  bundleItems?: BundleItem[]; // Для комплектів
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
 }
 
 export interface User {
@@ -30,9 +37,4 @@ export interface User {
   email: string;
   role: UserRole;
   name: string;
-}
-
-export interface CartItem {
-  product: Product;
-  quantity: number;
 }
